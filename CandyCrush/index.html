@@ -1,0 +1,592 @@
+<!--
+CandyCrush
+
+-->
+<!DOCTYPE html>
+<html>
+<!--
+/* Copyright (c) 2017 MIT 6.813/6.831 course staff, all rights reserved.
+ * Redistribution of original or derived work requires permission of course staff.
+ */
+-->
+
+<head>
+<meta charset="utf-8">
+<title>CandyCrush</title>
+
+<!-- Load style sheets -->
+<link rel="stylesheet" href=
+  "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.css">
+
+<link rel="stylesheet" href="mainLayout.css">
+
+<!-- Use mobile-aware viewport -->
+<meta name="viewport" content=
+  "width=device-width, initial-scale=1, shrink-to-fit=no">
+
+<!-- Load any supplemental Javascript libraries here -->
+<script src=
+  "https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src=
+  "https://cdnjs.cloudflare.com/ajax/libs/seedrandom/2.4.2/seedrandom.js">
+</script>
+<script src="candy.js"></script>
+<script src="board.js"></script>
+<script src="rules.js"></script>
+
+<script>
+
+// By default, the first board loaded by your page will be the same 
+// each time you load (which is accomplished by "seeding" the random
+// number generator. This makes testing (and grading!) easier!
+Math.seedrandom(0);
+
+
+// A short jQuery extension to read query parameters from the URL.
+$.extend({
+  getUrlVars: function() {
+    var vars = [], pair;
+    var pairs = window.location.search.substr(1).split('&');
+    for (var i = 0; i < pairs.length; i++) {
+      pair = pairs[i].split('=');
+      vars.push(pair[0]);
+      vars[pair[0]] = pair[1] &&
+          decodeURIComponent(pair[1].replace(/\+/g, ' '));
+    }
+    return vars;
+  },
+  getUrlVar: function(name) {
+    return $.getUrlVars()[name];
+  }
+});
+
+// constants
+var DEFAULT_BOARD_SIZE = 8;
+
+// data model at global scope for easier debugging
+var board;
+var rules;
+
+var user_move;
+var crush_stack = [];
+
+// initialize board
+if ($.getUrlVar('size') && $.getUrlVar('size') >= 3) {
+
+	DEFAULT_BOARD_SIZE = $.getUrlVar('size');
+
+}
+	
+board = new Board(DEFAULT_BOARD_SIZE);
+
+console.log("color: " + DEFAULT_BOARD_SIZE);
+// load a rule
+rules = new Rules(board);
+	
+
+
+var makeCandyTable = function(size){
+
+    var values = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+    var count = 0;
+    for(var i=0; i<size; i++){
+        $('#candyTable').append('<tr></tr>');
+			
+      for(var j=0; j<size; j++){
+				var val = i+1;
+				var td_val = values[j] + val;
+			
+				$('#candyTable tr:last-child').append('<td id =' + td_val  +' style= "background-color: ' + board.square[i][j].color +'">' + td_val + '</td>');
+
+				//console.log("color: " + board.square[i][j].color);
+
+				if (board.square[i][j].color== 'yellow')
+				{
+					$('#candyTable tr:last-child td:last-child').css('color', 'grey');
+				}
+					
+				else
+				{
+					$('#candyTable tr:last-child td:last-child').css('color', 'white');
+				}
+				
+				var child = i-1;
+        count++;
+
+      }
+    }
+}
+
+
+function disable_btn(set_crush_disable)
+{
+	$("#up_btn").prop('disabled', true);
+	$("#up_btn").css('background-color', 'lightgray');
+	
+	$("#down_btn").prop('disabled', true);
+	$("#down_btn").css('background-color', 'lightgray');
+	
+	$("#right_btn").prop('disabled', true);
+	$("#right_btn").css('background-color', 'lightgray');
+	
+	$("#left_btn").prop('disabled', true);
+	$("#left_btn").css('background-color', 'lightgray');
+	
+	$("#crush_btn").prop('disabled', set_crush_disable);
+
+	if (!set_crush_disable){
+		$("#crush_btn").css('background-color', 'pink');
+	}
+	else{
+		$("#crush_btn").css('background-color', 'lightgray');
+	}
+	
+}
+	
+// Final initialization entry point: the Javascript code inside this block
+// runs at the end of start-up when the page has finished loading.
+$(document).ready(function()
+{
+	disable_btn(true);
+	rules.prepareNewGame();
+	makeCandyTable(DEFAULT_BOARD_SIZE);
+
+	
+});
+
+
+/* Event Handlers */
+// access the candy object with info.candy
+
+// add a candy to the board
+$(board).on('add', function(e, info)
+{
+
+	var row = info.candy.row+1;
+	var given_id = "#"+ col_lookupTable(info.candy.col) + row;
+							 
+
+	if (info.candy.color == "yellow"){
+			$(given_id).css('color', 'grey');
+			
+		}
+		else
+		{
+			$(given_id).css('color', 'white');
+		}
+	
+	$(given_id).css("background-color", info.candy.color);
+
+	
+});
+
+
+function col_lookupTable(str) {
+
+	switch(str)
+  {
+			case 0:  {
+        return "a";
+      }
+      case 1: {
+        return "b";
+      }
+      case 2: {
+        return "c";
+      }
+      case 3: {
+        return "d";
+      }
+			case 4: {
+        return "e";
+      }
+			case 5: {
+        return "f";
+      }
+			case 6: {
+        return "g";
+      }
+			case 7: {
+        return "h";
+      }
+	}
+	
+}
+
+// move a candy on the board
+$(board).on('move', function(e, info)
+{
+	console.log("info.candy.col: " + info.candy.col + ", info.candy.row: " + info.candy.row + " with color: " + info.candy.color);
+
+	var row = info.candy.row+1;
+	var given_id = "#"+ col_lookupTable(info.candy.col) + row;
+							 
+
+	if (info.candy.color == "yellow"){
+			$(given_id).css('color', 'grey');
+			
+		}
+		else
+		{
+			$(given_id).css('color', 'white');
+		}
+	
+	$(given_id).css("background-color", info.candy.color);
+	
+  
+});
+
+// remove a candy from the board
+$(board).on('remove', function(e, info)
+{
+  
+	
+
+	var row = info.fromRow+1;
+	var given_id = "#"+ col_lookupTable(info.fromCol) + row;
+
+	console.log("given id: " + given_id);
+	$(given_id).css('color', 'white');
+	
+	$(given_id).css("background-color", 'black');
+	
+	
+});
+var crushable;
+$(document).on('click', "#crush_btn", function(evt)
+{
+
+	
+	rules.removeCrushes(crush_stack[0]);
+
+	crush_stack.splice(0, 1)
+	
+	
+	console.log("crush statck: " + crush_stack.length);
+	
+
+	setTimeout(function() { 
+        rules.moveCandiesDown();
+				
+		
+			if (crush_stack.length == 0)
+			{
+				var crushable2 = rules.getCandyCrushes();
+				if(crushable2.length == 0)
+				{
+					$("#crush_btn").prop('disabled', true);
+					$("#user_input").prop('disabled', false);
+					$("#crush_btn").css('background-color', 'lightgray');
+				}
+				else
+				{
+					for (var i = 0; i < crushable2.length; i++)
+					{
+						crush_stack.push(crushable2);
+					}
+					
+				}
+				
+			}
+    }, 500);
+	
+});
+
+// move a candy on the board
+$(board).on('scoreUpdate', function(e, info)
+{
+  // Your code here. To be implemented in pset 2.
+});
+
+// Button Events
+$(document).on('click', "#start_btn", function(evt)
+{
+	disable_btn(true);
+	reset_text();
+	
+	board.clear();
+	rules.prepareNewGame();
+	
+	
+	var j =0;
+	var i = 0;
+	var count = 0;
+	
+  $("td").each(function(){
+		var color = board.square[i][j].color;
+		$(this).css('background-color', color);
+		
+		if (color == "yellow"){
+			$(this).css('color', 'grey');
+			
+		}
+		else
+		{
+			$(this).css('color', 'white');
+		}
+
+		j++;
+		if (j == 8){
+			i++;
+			j = 0;
+		}
+	});
+	
+});
+
+function lookupTable(str) {
+
+	switch(str)
+  {
+			case "a":  {
+        return 0;
+      }
+      case "b": {
+        return 1;
+      }
+      case "c": {
+        return 2;
+      }
+      case "d": {
+        return 3;
+      }
+			case "e": {
+        return 4;
+      }
+			case "f": {
+        return 5;
+      }
+			case "g": {
+        return 6;
+      }
+			case "h": {
+        return 7;
+      }
+			default:{
+				return -1;
+			}
+	}
+	
+}
+
+function reset_text()
+{
+	$("#user_input").val('');
+	user_move = '';
+	$("#user_input").focus();
+}
+
+function check_input() {
+	var nums = ["1", "2", "3", "4", "5", "6", "7", "8"];
+	if (user_move.length >2 || user_move.length <=1){
+		
+		return false;
+	}
+
+	var count = 0;
+	var row_val = user_move.substring(1,2);
+	for (var i=0; i< 8; i++){
+		if (row_val == nums[i]){
+			count++;
+		}
+	}
+
+	if (count == 0)
+	{
+		
+		return false;
+	}
+	
+	var row = parseInt(row_val) - 1;
+	var col = lookupTable(user_move.substring(0,1));
+
+	if (col == -1){
+		reset_text();
+		return false;
+	}
+
+	return true;
+}
+
+
+
+	
+function move_candy(direction_btn)
+{
+	
+	var row = parseInt(user_move.substring(1,2)) - 1;
+	var col = lookupTable(user_move.substring(0,1));
+
+	var candy1 = board.getCandyAt(row, col);
+	
+	if (rules.isMoveTypeValid (candy1, direction_btn))
+	{
+		
+		
+		var candy2 = board.getCandyInDirection(candy1, direction_btn);
+		
+		var swap = [candy1, candy2];
+
+		var crushable = rules.getCandyCrushes(swap);
+		crush_stack.push(crushable);
+		
+		console.log("crushable: " + crushable);
+		
+		console.log(candy1);
+		console.log(candy2);
+		board.flipCandies(candy1, candy2);
+
+		
+		disable_btn(false);
+		$("#user_input").prop('disabled', true);
+		
+		console.log(swap);
+	}
+	else
+	{
+		disable_btn(true);
+	}
+
+	reset_text();
+	
+	
+}
+	
+$(document).on('click', "#up_btn", function(evt)
+{
+	move_candy("up");
+});
+
+$(document).on('click', "#down_btn", function(evt)
+{
+	move_candy("down");
+});
+
+$(document).on('click', "#right_btn", function(evt)
+{
+	move_candy("right");
+
+});
+
+$(document).on('click', "#left_btn", function(evt)
+{
+	move_candy("left");
+	
+});
+
+var moves_list = ["up", "down", "right", "left"];
+
+// keyboard events arrive here
+$(document).on('keydown', function(evt) {
+
+	$("#user_input").keyup(function(){
+    user_move = $('#user_input').val();
+		if (user_move.length >= 2){
+			if (check_input())
+			{
+				var row = parseInt(user_move.substring(1,2)) - 1;
+				var col = lookupTable(user_move.substring(0,1));
+			
+				var candy1 = board.getCandyAt(row, col);
+
+				for (var i =0; i< 4; i++)
+				{
+						if (rules.isMoveTypeValid (candy1, moves_list[i]))
+						{
+							var button_id = "#" + moves_list[i] + "_btn";
+							console.log("button id: " + button_id );
+							$(button_id).prop('disabled', false);
+							$(button_id).css('background-color', 'pink');
+
+						}
+				}
+
+			}
+			else
+			{
+				disable_btn(true);
+			}
+		}
+		
+  });
+
+});
+
+
+</script>
+
+
+</head>
+
+<body>
+
+<div class="container">
+  <div class="row">
+    <div class="col-md-4" id="firstColumn">
+      <div>
+      
+				<p>Candy Crush</p>
+				
+      	
+						 
+				<input class="btn btn-default" type="button" value="New Game" id ="start_btn">
+				</input>
+					
+
+      </div>
+  </div>
+
+    <div class="col-md-4" id="mainColumn">
+
+      
+			
+			<table id = "candyTable"></table>
+			
+
+    </div>
+
+    <div class="col-md-4" id="lastColumn">
+
+      
+			<p id = "user_move">
+
+				Move:
+				<input id= "user_input"></input>
+
+				
+
+			</p>
+
+			<p></p>
+			<div id= "control_btns">
+				<input class="btn btn-default" type="button" value="↑" id ="up_btn">
+				<p></p>
+			</div>
+
+				<div id= "left_right_btns">
+					<input class="btn btn-default" type="button" value="←" id ="left_btn">
+					
+					<input class="btn btn-default" type="button" value="→" id ="right_btn">
+				</div>
+
+			<div id= "control_btns">
+				<p></p>
+				<input class="btn btn-default" type="button" value="↓" id ="down_btn">
+					</input>
+			</div>
+
+			
+			<div id= "crush">
+      <input class="btn btn-default" type="button" value="Crush Once" id ="crush_btn">
+			</div>
+			
+
+			
+
+    </div>
+  </div> <!-- class="row" -->
+</div> <!-- class="container" -->
+
+</body>
+
+</html>
